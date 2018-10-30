@@ -16,14 +16,12 @@ RUN_SPEED_PPS = (RUN_SPEED_MPS * PIXEL_PER_METER)
 TIME_PER_ACTION = 0.5
 ACTION_PER_TIME = 1.0 / TIME_PER_ACTION
 FRAMES_PER_ACTION = 8
-GHOST_CIRCLE_MTS = 2
-GHOST_CIRCLE_MRM = 3
 
 
 
 
 # Boy Event
-RIGHT_DOWN, LEFT_DOWN, RIGHT_UP, LEFT_UP, SLEEP_TIMER, SPACE = range(6)
+RIGHT_DOWN, LEFT_DOWN, RIGHT_UP, LEFT_UP, SLEEP_TIMER, SPACE, GHOST = range(7)
 
 key_event_table = {
     (SDL_KEYDOWN, SDLK_RIGHT): RIGHT_DOWN,
@@ -58,11 +56,15 @@ class IdleState:
     @staticmethod
     def do(boy):
         boy.frame = (boy.frame + FRAMES_PER_ACTION * ACTION_PER_TIME * game_framework.frame_time) % 8
+        boy.gx, boy.gy = boy.x, boy.y
         if get_time() - boy.timer >= 2:
+            boy.sleep_x = boy.x
+            boy.sleep_y = boy.y
             boy.add_event(SLEEP_TIMER)
 
     @staticmethod
     def draw(boy):
+        boy.image.opacify(1)
         if boy.dir == 1:
             boy.image.clip_draw(int(boy.frame) * 100, 300, 100, 100, boy.x, boy.y)
         else:
@@ -114,7 +116,7 @@ class SleepState:
 
     @staticmethod
     def do(boy):
-        boy.frame = (boy.frame + FRAMES_PER_ACTION * ACTION_PER_TIME * game_framework.frame_time) % 8
+        boy.add_event(GHOST)
 
     @staticmethod
     def draw(boy):
@@ -123,16 +125,46 @@ class SleepState:
         else:
             boy.image.clip_composite_draw(int(boy.frame) * 100, 200, 100, 100, -3.141592 / 2, '', boy.x + 25, boy.y - 25, 100, 100)
 
+class GhostState:
 
+    @staticmethod
+    def enter(boy, event):
+        boy.frame = 0
 
+    @staticmethod
+    def exit(boy, event):
+        pass
+
+    @staticmethod
+    def do(boy):
+        boy.x = 100 * math.sin(boy.angle * 3.14 / 360)
+        boy.y = 100 + 100 * - math.cos(boy.angle * 3.14 / 360)
+        boy.angle += 720 * game_framework.frame_time
+
+    @staticmethod
+    def draw(boy):
+        if boy.dir == 1:
+            boy.image.opacify(1)
+            boy.image.clip_composite_draw(int(boy.frame) * 100, 300, 100, 100, 3.141592 / 2, '', boy.gx - 25, boy.gy - 25, 100, 100)
+            boy.image.opacify(0.5)
+            boy.image.clip_draw(int(boy.frame) * 100, 100, 100, 100, boy.x + boy.sleep_x, boy.y + boy.sleep_y)
+
+        else:
+            boy.image.opacify(1)
+            boy.image.clip_composite_draw(int(boy.frame) * 100, 200, 100, 100, -3.141592 / 2, '', boy.gx + 25, boy.gy - 25, 100, 100)
+            boy.image.opacify(0.5)
+            boy.image.clip_draw(int(boy.frame) * 100, 0, 100, 100, boy.x, boy.y)
 
 
 
 next_state_table = {
-    IdleState: {RIGHT_UP: RunState, LEFT_UP: RunState, RIGHT_DOWN: RunState, LEFT_DOWN: RunState, SLEEP_TIMER: SleepState, SPACE: IdleState},
-    RunState: {RIGHT_UP: IdleState, LEFT_UP: IdleState, LEFT_DOWN: IdleState, RIGHT_DOWN: IdleState, SPACE: RunState},
-    SleepState: {LEFT_DOWN: RunState, RIGHT_DOWN: RunState, LEFT_UP: RunState, RIGHT_UP: RunState, SPACE: IdleState}
+    IdleState: {RIGHT_UP: RunState, LEFT_UP: RunState, RIGHT_DOWN: RunState, LEFT_DOWN: RunState, SLEEP_TIMER: SleepState, SPACE: IdleState, GHOST: GhostState},
+    RunState: {RIGHT_UP: IdleState, LEFT_UP: IdleState, LEFT_DOWN: IdleState, RIGHT_DOWN: IdleState, SPACE: RunState, GHOST: GhostState},
+    SleepState: {LEFT_DOWN: RunState, RIGHT_DOWN: RunState, LEFT_UP: RunState, RIGHT_UP: RunState, SPACE: IdleState, GHOST: GhostState},
+    GhostState: {LEFT_DOWN: RunState, RIGHT_DOWN: RunState, LEFT_UP: RunState, RIGHT_UP: RunState, SPACE: IdleState, GHOST: GhostState}
 }
+
+
 
 class Boy:
 
@@ -143,6 +175,9 @@ class Boy:
         self.dir = 1
         self.velocity = 0
         self.frame = 0
+        self.angle = 0
+        self.sleep_x = self.x
+        self.sleep_y = self.y
         self.event_que = []
         self.cur_state = IdleState
         self.cur_state.enter(self, None)
@@ -166,41 +201,9 @@ class Boy:
 
     def draw(self):
         self.cur_state.draw(self)
-        self.font.draw(self.x - 60, self.y + 50, '(Time: %3.2f)' % get_time(), (255, 255, 0))
+        self.font.draw(self.sleep_x - 60, self.sleep_y + 50, '(Time: %3.2f)' % get_time(), (255, 255, 0))
 
     def handle_event(self, event):
         if (event.type, event.key) in key_event_table:
             key_event = key_event_table[(event.type, event.key)]
             self.add_event(key_event)
-
-class Ghost:
-
-    def __init__(self):
-        self.x, self.y = 1600 // 2, 90
-        self.image = load_image('animation_sheet.png')
-        self.dir = 1
-        self.velocity = 0
-        self.frame = 0
-        self.event_que = []
-        self.cur_state = IdleState
-        self.cur_state.enter(self, None)
-
-    def add_event(self, event):
-        self.event_que.insert(0, event)
-
-    def update(self):
-        self.cur_state.do(self)
-        if len(self.event_que) > 0:
-            event = self.event_que.pop()
-            self.cur_state.exit(self, event)
-            self.cur_state = next_state_table[self.cur_state][event]
-            self.cur_state.enter(self, event)
-
-    def draw(self):
-        self.cur_state.draw(self)
-
-    def handle_event(self, event):
-        if (event.type, event.key) in key_event_table:
-            key_event = key_event_table[(event.type, event.key)]
-            self.add_event(key_event)
-
