@@ -3,6 +3,7 @@ from pico2d import *
 from ball import Ball
 
 import game_world
+import math
 
 # Boy Run Speed
 PIXEL_PER_METER = (10.0 / 0.3)
@@ -15,7 +16,8 @@ RUN_SPEED_PPS = (RUN_SPEED_MPS * PIXEL_PER_METER)
 TIME_PER_ACTION = 0.5
 ACTION_PER_TIME = 1.0 / TIME_PER_ACTION
 FRAMES_PER_ACTION = 8
-
+GHOST_CIRCLE_MTS = 2
+GHOST_CIRCLE_MRM = 3
 
 
 
@@ -46,19 +48,17 @@ class IdleState:
             boy.velocity -= RUN_SPEED_PPS
         elif event == LEFT_UP:
             boy.velocity += RUN_SPEED_PPS
-        boy.timer = 1000
+        boy.timer = get_time()
 
     @staticmethod
     def exit(boy, event):
         if event == SPACE:
             boy.fire_ball()
-        pass
 
     @staticmethod
     def do(boy):
         boy.frame = (boy.frame + FRAMES_PER_ACTION * ACTION_PER_TIME * game_framework.frame_time) % 8
-        boy.timer -= 1
-        if boy.timer == 0:
+        if get_time() - boy.timer >= 2:
             boy.add_event(SLEEP_TIMER)
 
     @staticmethod
