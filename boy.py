@@ -4,6 +4,7 @@ from ball import Ball
 
 import game_world
 import math
+import random
 
 # Boy Run Speed
 PIXEL_PER_METER = (10.0 / 0.3)
@@ -146,13 +147,13 @@ class GhostState:
         if boy.dir == 1:
             boy.image.opacify(1)
             boy.image.clip_composite_draw(int(boy.frame) * 100, 300, 100, 100, 3.141592 / 2, '', boy.gx - 25, boy.gy - 25, 100, 100)
-            boy.image.opacify(0.5)
+            boy.image.opacify(random.randint(0, 100) / 100)
             boy.image.clip_draw(int(boy.frame) * 100, 100, 100, 100, boy.x + boy.sleep_x, boy.y + boy.sleep_y)
 
         else:
             boy.image.opacify(1)
             boy.image.clip_composite_draw(int(boy.frame) * 100, 200, 100, 100, -3.141592 / 2, '', boy.gx + 25, boy.gy - 25, 100, 100)
-            boy.image.opacify(0.5)
+            boy.image.opacify(random.randint(0, 100) / 100)
             boy.image.clip_draw(int(boy.frame) * 100, 0, 100, 100, boy.x, boy.y)
 
 
