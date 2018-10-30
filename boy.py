@@ -139,7 +139,7 @@ class GhostState:
     def do(boy):
         boy.x = 100 * math.sin(boy.angle * 3.14 / 360)
         boy.y = 100 + 100 * - math.cos(boy.angle * 3.14 / 360)
-        boy.angle += 720 * game_framework.frame_time
+        boy.angle += 1440 * game_framework.frame_time
 
     @staticmethod
     def draw(boy):
